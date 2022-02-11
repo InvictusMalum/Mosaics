@@ -1,3 +1,4 @@
+from curses.ascii import alt
 import pygame
 from pygame.locals import *
 import random
@@ -50,6 +51,9 @@ def V2toPointList(points, xOff, yOff):
 def randColor():
     return (random.randrange(255), random.randrange(255), random.randrange(255))
 
+def roundint(x):
+    return int(x+0.5)
+
 class Vector2():
     def __init__(self, x=0, y=0):
         self.x = x
@@ -65,6 +69,9 @@ class Shape():
         self.horzStretch = hS
         self.vertStretch = vS
         self.calculateTransformedPoints()
+        self.width=0
+        self.height=0
+        self.getWidths()
         
     def setPointsOffShape(self, shape):
         if shape == "square":
@@ -72,7 +79,7 @@ class Shape():
         elif shape == "equilateral":
             self.initialPoints=[(0.0,1.0),(-0.866,-0.5),(0.866,-0.5)]
         elif shape == "hexagon":
-            self.initialPoints=[(1.0,0.0),(0.5774,1.0),(-0.5774,1.0),(-1.0,0.0),(-0.5774,-1.0),(0.5774,-1.0)]
+            self.initialPoints=[(1.0,0.0),(0.5,0.866),(-0.5,0.866),(-1.0,0.0),(-0.5,-0.866),(0.5,-0.866)]
             
     def calculateTransformedPoints(self):
         self.points = []
@@ -82,17 +89,31 @@ class Shape():
             newPoint.y = point[1]*self.vertStretch*self.scale
             self.points.append(newPoint)
     
+    def getWidths(self):
+        maxWidth=0
+        maxHeight=0
+        for point in self.points:
+            if abs(point.x) > maxWidth:
+                maxWidth = abs(point.x)
+            if abs(point.y) > maxHeight:
+                maxHeight = abs(point.y)
+        self.width = maxWidth*2
+        self.height = maxHeight*2
+    
     def setScale(self, value):
         self.scale = value
         self.calculateTransformedPoints()
+        self.getWidths()
         
     def setHStretch(self, value):
         self.horzStretch = value
         self.calculateTransformedPoints()
+        self.getWidths()
         
     def setVStretch(self, value):
         self.vertStretch = value
         self.calculateTransformedPoints()
+        self.getWidths()
         
 class Tile():
     bufferWidth=1
@@ -111,8 +132,8 @@ class Tile():
         self.parent = p
         self.children = c
         
-        self.width = 2*self.horzStretch*self.scale +2*Tile.bufferWidth
-        self.height = 2*self.vertStretch*self.scale +2*Tile.bufferWidth
+        self.width = self.shape.width +2*Tile.bufferWidth
+        self.height = self.shape.height +2*Tile.bufferWidth
         
         self.createSurface()
         self.createShape()
@@ -145,19 +166,72 @@ class TesselationType():
         elif type == "rotated-rectangles":
             pass
         elif type == "simple-equilaterals":
-            pass
+            self.simpleEquilaterals(width, height, 24)
         elif type == "rotated-equilaterals":
             pass
         elif type == "simple-hexagons":
-            pass
+            self.simpleHexagons(width, height, 50)
         elif type == "rotated-hexagons":
             pass
     
     def simpleRectangles(self, width, height, sqWidth, sqHeight):
         self.nodeMap = []
-        for x in range(int(-width/2 -sqWidth/2), int(width/2 +sqWidth/2)+1, sqWidth):
-            for y in range(int(-height/2 -sqHeight/2), int(height/2 +sqHeight/2)+1, sqHeight):
-                shapeData = ["hexagon", Vector2(x,y), 1, (sqWidth-2*Tile.bufferWidth)/2, (sqHeight-2*Tile.bufferWidth)/2]
+        for x in range(roundint(-width/2 -sqWidth/2), roundint(width/2 +sqWidth/2)+1, sqWidth):
+            for y in range(roundint(-height/2 -sqHeight/2), roundint(height/2 +sqHeight/2)+1, sqHeight):
+                shapeData = ["square", Vector2(x,y), 1, (sqWidth-2*Tile.bufferWidth)/2, (sqHeight-2*Tile.bufferWidth)/2]
+                self.nodeMap.append(shapeData)
+    
+    def simpleEquilaterals(self, width, height, eqWidth):
+        self.nodeMap = []
+        eqHeight=roundint(eqWidth/2*1.73205)
+        alternator = True
+        for y in range(roundint(-height/2 -eqHeight/2), roundint(height/2 +eqHeight/2)+1, eqHeight):
+            alternator = not(alternator)
+            for x in range(roundint(-width/2 -eqWidth/2), roundint(width/2 +eqWidth/2)+1, eqWidth):
+                shapeData = []
+                if alternator:
+                    shapeData = ["equilateral", Vector2(x,y), eqWidth//2, 1, 1]
+                else:
+                    shapeData = ["equilateral", Vector2(x+eqWidth//2,y), eqWidth//2, 1, 1]
+                self.nodeMap.append(shapeData)
+        alternator = True
+        for y in range(roundint(-height/2 -eqHeight/6), roundint(height/2 +eqHeight/2)+1, eqHeight):
+            alternator = not(alternator)
+            for x in range(roundint(-width/2), roundint(width/2 +eqWidth)+1, eqWidth):
+                shapeData = []
+                if alternator:
+                    shapeData = ["equilateral", Vector2(x,y), eqWidth//2, 1, -1]
+                else:
+                    shapeData = ["equilateral", Vector2(x+eqWidth//2,y), eqWidth//2, 1, -1]
+                self.nodeMap.append(shapeData)
+    
+    def simpleHexagons(self, width, height, hexWidth):
+        self.nodeMap = []
+        hexHeight = roundint(hexWidth/2*1.73205)
+        
+        alternator=True
+        for x in range(round(-width/2), roundint(width/2 +hexWidth)+1, roundint(hexWidth*3/4)-1):
+            alternator = not(alternator)
+            for y in range(roundint(-height/2 -hexHeight/6), roundint(height/2 +hexHeight/2)+1, hexHeight):
+                shapeData = []
+                if alternator:
+                    shapeData = ["hexagon", Vector2(x,y), hexWidth//2, 1, 1]
+                else:
+                    shapeData = ["hexagon", Vector2(x,y+hexHeight//2), hexWidth//2, 1, 1]
+                self.nodeMap.append(shapeData)
+    
+    def starHexagons(self, width, height, hexWidth):
+        self.nodeMap = []
+        hexHeight = roundint(hexWidth/2*1.73205)
+        alternator=True
+        for y in range(roundint(-height/2 -hexHeight/6), roundint(height/2 +hexHeight/2)+1, hexHeight):
+            alternator = not(alternator)
+            for x in range(roundint(-width/2), roundint(width/2 +hexWidth)+1, hexWidth):
+                shapeData = []
+                if alternator:
+                    shapeData = ["hexagon", Vector2(x,y), hexWidth//2, 1, 1]
+                else:
+                    shapeData = ["hexagon", Vector2(x+hexWidth//2,y), hexWidth//2, 1, 1]
                 self.nodeMap.append(shapeData)
 
 class Tesselation():
@@ -182,9 +256,8 @@ class Tesselation():
         for tile in self.tiles:
             self.surface.blit(tile.surface, (self.width/2 + tile.position.x-tile.width/2, self.height/2+tile.position.y-tile.height/2))
 
-simpleRectangles = TesselationType("simple-rectangles",500,500)
-
-tessalation = Tesselation(simpleRectangles)
+type = TesselationType("simple-hexagons",500,500)
+tessalation = Tesselation(type)
 tessalation.draw()
 screen.blit(tessalation.surface, (WIDTH/2-tessalation.width/2, HEIGHT/2-tessalation.height/2))
 
