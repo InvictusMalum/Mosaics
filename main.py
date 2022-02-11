@@ -1,14 +1,9 @@
-from numpy.core.fromnumeric import var
-from numpy.lib.function_base import gradient
-from numpy.random.mtrand import f
 import pygame
 from pygame.locals import *
 import random
 import math
 import time
 
-import matplotlib.pyplot as plt
-import numpy as np
 
 import os
 import shutil
@@ -44,13 +39,16 @@ blue = (0,0,255)
 background = (127,255,255)
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.SRCALPHA, 32)
-screen.fill(white)
+screen.fill(black)
 
 def V2toPointList(points, xOff, yOff):
     out = []
     for point in points:
         out.append([point.x+xOff, point.y+yOff])
     return out
+
+def randColor():
+    return (random.randrange(255), random.randrange(255), random.randrange(255))
 
 class Vector2():
     def __init__(self, x=0, y=0):
@@ -70,11 +68,11 @@ class Shape():
         
     def setPointsOffShape(self, shape):
         if shape == "square":
-            self.initialPoints=[(-0.707,-0.707),(0.707,-0.707),(0.707, 0.707),(-0.707,0.707)]
+            self.initialPoints=[(-1.0,-1.0),(1.0,-1.0),(1.0, 1.0),(-1.0,1.0)]
         elif shape == "equilateral":
             self.initialPoints=[(0.0,1.0),(-0.866,-0.5),(0.866,-0.5)]
         elif shape == "hexagon":
-            self.initialPoints=[(1.0,0.0),(0.5,0.866),(-0.5,0.866),(-1.0,0.0),(-0.5,-0.866),(0.5,-0.866)]
+            self.initialPoints=[(1.0,0.0),(0.5774,1.0),(-0.5774,1.0),(-1.0,0.0),(-0.5774,-1.0),(0.5774,-1.0)]
             
     def calculateTransformedPoints(self):
         self.points = []
@@ -97,7 +95,7 @@ class Shape():
         self.calculateTransformedPoints()
         
 class Tile():
-    bufferWidth=5
+    bufferWidth=1
     
     rotation = None
     children = None
@@ -121,14 +119,14 @@ class Tile():
         self.blitChildren()
         
     def createSurface(self):
-        self.surface = pygame.Surface((self.width, self.height))
+        self.surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA, 32)
         self.surface.fill(blue)
         self.surface.set_colorkey(blue)
         
     def createShape(self):
-        for point in self.shape.points:
-            pygame.draw.circle(self.surface, black, (self.width/2+point.x, self.height/2+point.y), 2)
-        pygame.draw.polygon(self.surface, green, V2toPointList(self.shape.points, self.width/2,self.height/2), 0)
+        #for point in self.shape.points:
+        #    pygame.draw.circle(self.surface, black, (self.width/2+point.x, self.height/2+point.y), 2)
+        pygame.draw.polygon(self.surface, randColor(), V2toPointList(self.shape.points, self.width/2,self.height/2), 0)
             
     def blitChildren(self):
         for child in self.children:
@@ -138,9 +136,12 @@ class TesselationType():
     # Position, Shape, Rotation, 
     nodeMap = []
     
-    def __init__(self, type):
+    def __init__(self, type, width, height):
+        self.width = width
+        self.height = height
+        
         if type == "simple-rectangles":
-            pass
+            self.simpleRectangles(width, height, 50, 50)
         elif type == "rotated-rectangles":
             pass
         elif type == "simple-equilaterals":
@@ -152,22 +153,40 @@ class TesselationType():
         elif type == "rotated-hexagons":
             pass
     
-    def simpleRectangles(self, width, height):
+    def simpleRectangles(self, width, height, sqWidth, sqHeight):
         self.nodeMap = []
-        for x in range(width/2, WIDTH/2+width/2):
-            for y in range(height/2,HEIGHT/2+height/2):
-                shapeData = [Vector2(x,y), ("square", width, height)]
+        for x in range(int(-width/2 -sqWidth/2), int(width/2 +sqWidth/2)+1, sqWidth):
+            for y in range(int(-height/2 -sqHeight/2), int(height/2 +sqHeight/2)+1, sqHeight):
+                shapeData = ["hexagon", Vector2(x,y), 1, (sqWidth-2*Tile.bufferWidth)/2, (sqHeight-2*Tile.bufferWidth)/2]
+                self.nodeMap.append(shapeData)
 
 class Tesselation():
     type = None
     tiles = []
-    
+
     def __init__(self, type):
-        pass
+        self.width = type.width
+        self.height = type.height
 
+        for tileData in type.nodeMap:
+            self.tiles.append(Tile(tileData[0], tileData[1], tileData[2], tileData[3], tileData[4]))
+        
+        self.createSurface()
 
-tile = Tile("hexagon", pos=Vector2(200,200), s=20, c=[Tile("square", s=20)])
-screen.blit(tile.surface, (tile.position.x - Tile.bufferWidth, tile.position.y - Tile.bufferWidth))
+    def createSurface(self):
+        self.surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA, 32)
+        self.surface.fill(white)
+        #self.surface.set_colorkey(white)
+
+    def draw(self):
+        for tile in self.tiles:
+            self.surface.blit(tile.surface, (self.width/2 + tile.position.x-tile.width/2, self.height/2+tile.position.y-tile.height/2))
+
+simpleRectangles = TesselationType("simple-rectangles",500,500)
+
+tessalation = Tesselation(simpleRectangles)
+tessalation.draw()
+screen.blit(tessalation.surface, (WIDTH/2-tessalation.width/2, HEIGHT/2-tessalation.height/2))
 
 
 
