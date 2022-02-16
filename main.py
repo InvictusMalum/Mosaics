@@ -1,4 +1,3 @@
-from curses.ascii import alt
 import pygame
 from pygame.locals import *
 import random
@@ -77,7 +76,7 @@ class Shape():
         if shape == "square":
             self.initialPoints=[(-1.0,-1.0),(1.0,-1.0),(1.0, 1.0),(-1.0,1.0)]
         elif shape == "equilateral":
-            self.initialPoints=[(0.0,1.0),(-0.866,-0.5),(0.866,-0.5)]
+            self.initialPoints=[(0.0,.75),(-0.866,-0.75),(0.866,-0.75)]
         elif shape == "hexagon":
             self.initialPoints=[(1.0,0.0),(0.5,0.866),(-0.5,0.866),(-1.0,0.0),(-0.5,-0.866),(0.5,-0.866)]
             
@@ -163,23 +162,18 @@ class TesselationType():
         
         if type == "simple-rectangles":
             self.simpleRectangles(width, height, 50, 50)
-        elif type == "rotated-rectangles":
-            pass
         elif type == "simple-equilaterals":
             self.simpleEquilaterals(width, height, 24)
-        elif type == "rotated-equilaterals":
-            pass
         elif type == "simple-hexagons":
             self.simpleHexagons(width, height, 50)
-        elif type == "rotated-hexagons":
-            pass
+        elif type == "star-hexagons":
+            self.starHexagons(width, height, 50)
     
     def simpleRectangles(self, width, height, sqWidth, sqHeight):
         self.nodeMap = []
         for x in range(roundint(-width/2 -sqWidth/2), roundint(width/2 +sqWidth/2)+1, sqWidth):
             for y in range(roundint(-height/2 -sqHeight/2), roundint(height/2 +sqHeight/2)+1, sqHeight):
-                shapeData = ["square", Vector2(x,y), 1, (sqWidth-2*Tile.bufferWidth)/2, (sqHeight-2*Tile.bufferWidth)/2]
-                self.nodeMap.append(shapeData)
+                self.nodeMap.append(["square", Vector2(x,y), 1, (sqWidth-2*Tile.bufferWidth)/2, (sqHeight-2*Tile.bufferWidth)/2])
     
     def simpleEquilaterals(self, width, height, eqWidth):
         self.nodeMap = []
@@ -188,22 +182,19 @@ class TesselationType():
         for y in range(roundint(-height/2 -eqHeight/2), roundint(height/2 +eqHeight/2)+1, eqHeight):
             alternator = not(alternator)
             for x in range(roundint(-width/2 -eqWidth/2), roundint(width/2 +eqWidth/2)+1, eqWidth):
-                shapeData = []
                 if alternator:
-                    shapeData = ["equilateral", Vector2(x,y), eqWidth//2, 1, 1]
+                    self.nodeMap.append(["equilateral", Vector2(x,y), eqWidth//2, 1, 1])
                 else:
-                    shapeData = ["equilateral", Vector2(x+eqWidth//2,y), eqWidth//2, 1, 1]
-                self.nodeMap.append(shapeData)
+                    self.nodeMap.append(["equilateral", Vector2(x+eqWidth//2,y), eqWidth//2, 1, 1])
+
         alternator = True
         for y in range(roundint(-height/2 -eqHeight/6), roundint(height/2 +eqHeight/2)+1, eqHeight):
             alternator = not(alternator)
             for x in range(roundint(-width/2), roundint(width/2 +eqWidth)+1, eqWidth):
-                shapeData = []
                 if alternator:
-                    shapeData = ["equilateral", Vector2(x,y), eqWidth//2, 1, -1]
+                    self.nodeMap.append(["equilateral", Vector2(x,y), eqWidth//2, 1, -1])
                 else:
-                    shapeData = ["equilateral", Vector2(x+eqWidth//2,y), eqWidth//2, 1, -1]
-                self.nodeMap.append(shapeData)
+                    self.nodeMap.append(["equilateral", Vector2(x+eqWidth//2,y), eqWidth//2, 1, -1])
     
     def simpleHexagons(self, width, height, hexWidth):
         self.nodeMap = []
@@ -213,12 +204,10 @@ class TesselationType():
         for x in range(round(-width/2), roundint(width/2 +hexWidth)+1, roundint(hexWidth*3/4)-1):
             alternator = not(alternator)
             for y in range(roundint(-height/2 -hexHeight/6), roundint(height/2 +hexHeight/2)+1, hexHeight):
-                shapeData = []
                 if alternator:
-                    shapeData = ["hexagon", Vector2(x,y), hexWidth//2, 1, 1]
+                    self.nodeMap.append(["hexagon", Vector2(x,y), hexWidth//2, 1, 1])
                 else:
-                    shapeData = ["hexagon", Vector2(x,y+hexHeight//2), hexWidth//2, 1, 1]
-                self.nodeMap.append(shapeData)
+                    self.nodeMap.append(["hexagon", Vector2(x,y+hexHeight//2), hexWidth//2, 1, 1])
     
     def starHexagons(self, width, height, hexWidth):
         self.nodeMap = []
@@ -227,12 +216,14 @@ class TesselationType():
         for y in range(roundint(-height/2 -hexHeight/6), roundint(height/2 +hexHeight/2)+1, hexHeight):
             alternator = not(alternator)
             for x in range(roundint(-width/2), roundint(width/2 +hexWidth)+1, hexWidth):
-                shapeData = []
                 if alternator:
-                    shapeData = ["hexagon", Vector2(x,y), hexWidth//2, 1, 1]
+                    self.nodeMap.insert(0,["hexagon", Vector2(x,y), hexWidth//2, 1, 1])
+                    self.nodeMap.append(["equilateral", Vector2(x+hexWidth//2,y-hexHeight//4-2), hexWidth//4, 1, 1])
+                    self.nodeMap.append(["equilateral", Vector2(x+hexWidth//2,y+hexHeight//4+2), hexWidth//4, 1, -1])
                 else:
-                    shapeData = ["hexagon", Vector2(x+hexWidth//2,y), hexWidth//2, 1, 1]
-                self.nodeMap.append(shapeData)
+                    self.nodeMap.insert(0,["hexagon", Vector2(x+hexWidth//2,y), hexWidth//2, 1, 1])
+                    self.nodeMap.append(["equilateral", Vector2(x+hexWidth,y-hexHeight//4-2), hexWidth//4, 1, 1])
+                    self.nodeMap.append(["equilateral", Vector2(x+hexWidth,y+hexHeight//4+2), hexWidth//4, 1, -1])
 
 class Tesselation():
     type = None
@@ -256,7 +247,7 @@ class Tesselation():
         for tile in self.tiles:
             self.surface.blit(tile.surface, (self.width/2 + tile.position.x-tile.width/2, self.height/2+tile.position.y-tile.height/2))
 
-type = TesselationType("simple-hexagons",500,500)
+type = TesselationType("star-hexagons",500,500)
 tessalation = Tesselation(type)
 tessalation.draw()
 screen.blit(tessalation.surface, (WIDTH/2-tessalation.width/2, HEIGHT/2-tessalation.height/2))
